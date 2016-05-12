@@ -7,7 +7,7 @@
 
 static uint8_t buffer[BufferSize] = {0};
 
-RF24 radio(7,8);                // nRF24L01(+) radio attached using Getting Started board 
+RF24 radio(PIN_RF_CE, PIN_RF_CSN);                // nRF24L01(+) radio attached using Getting Started board 
 
 RF24Network network(radio);      // Network uses that radio
 
