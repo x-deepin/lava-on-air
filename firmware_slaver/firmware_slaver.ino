@@ -6,11 +6,10 @@
 
 const uint16_t SlaverNode = 02;
 
-SoftwareSerial mySerial(4,2);
 RF24 radio(PIN_RF_CE, PIN_RF_CSN);
 
 RF24Network network(radio);         
-static uint8_t buffer[BufferSize] = {0};
+
 
 void setup_RF(uint16_t node)
 {
@@ -21,16 +20,16 @@ void setup_RF(uint16_t node)
   radio.setCRCLength(rf24_crclength_e(RFCRCLen));
 
   network.begin(RFChannel, node);
+  
+  RF24NetworkHeader  h(MasterNode, TypeHello);
+  network.write(h, "hello", sizeof("hello"));
+  network.update();
 }
 
 void setup(void)
 {
   Serial.begin(MasterSerialBauds);
   while(!Serial){;}
-  
-  Serial.println("RF24Network/examples/helloworld_tx/");
-  mySerial.begin(9600);
-  mySerial.println("Hello 4,5");
   
   setup_RF(SlaverNode);
 }
@@ -68,7 +67,7 @@ void fpanel_control_loop()
 void fpanel_status_loop()
 {
   static unsigned long time = millis();
-  if (millis() - time  > 2000) {
+  if (millis() - time  > 5000) {
     time = millis();
     RF24NetworkHeader header(MasterNode, TypeFPanelStatus);
 
@@ -81,53 +80,59 @@ void fpanel_status_loop()
 }
 
 
-void forward_out_serial_message()
+void handle_serial_line()
 {
-  uint8_t available = 0;
   uint8_t rd = 0;
+  uint8_t buffer[BufferSize] = {0};
   
-  while ((available = mySerial.available()) > 0 && rd < BufferSize) {
-    
-    rd += mySerial.readBytes(buffer + rd,
-			     available > (BufferSize - rd) ?
-			     (BufferSize - rd) :
-			     available
-			     );
+  while (Serial.peek() >= 0 && rd < BufferSize) {
+      buffer[rd++] = Serial.read();
   }
   
   if (rd != 0) {
-    RF24NetworkHeader header(MasterNode, TypeSerialMessage);
-    network.write(header, buffer, rd);
-    network.update();
+      RF24NetworkHeader header(MasterNode, TypeSerialMessage);
+      network.write(header, buffer, rd);
+      Serial.write(buffer, rd);
+      Serial.flush();
+      network.update();
   }
 }
 
-void loop()
+void handle_network()
 {
-  forward_out_serial_message();
-  
-  network.update();
 
-  if ( network.available() )  {
+    network.update();
+    if (!network.available()) {
+	return;
+    }
+    
+    // 2. handle RF network message
     RF24NetworkHeader h;
+    uint8_t buffer[BufferSize];
     uint8_t c = network.read(h, buffer, BufferSize);
 
     switch (h.type) {
     case TypeSerialMessage:
-      Serial.write(buffer, c);
-      break;
+	Serial.write(buffer, c);
+	Serial.flush();
+	break;
     case TypeFPanelControl:
-      if (c == sizeof(FPanelControl)) {
+	if (c != sizeof(FPanelControl)) {
+	    // handle error
+	    break;
+	}
 	FPanelControl cmd;
 	memcpy(&cmd, buffer, sizeof(FPanelControl));
 	handle_fpanel_control(cmd);
-      } else  {
-	// Handle invalid message
-      }
-      break;
+	break;
     }
-  }
+}
 
-  fpanel_control_loop();
-  fpanel_status_loop();
+void loop()
+{
+    handle_serial_line();
+    handle_network();
+    
+//    fpanel_control_loop();
+    fpanel_status_loop();
 }

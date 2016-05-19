@@ -3,12 +3,13 @@
 
 enum T {
   TypeFirst = 1,
-  TypeSerialMessage,
-  TypeFPanelControl,
-  TypeFPanelStatus,
-  TypeInvalid,
-  TypeHello,
-  TypeEnd,
+  TypeSerialMessage = 2,
+  TypeFPanelControl = 3,
+  TypeFPanelStatus = 4,
+  TypeInvalid = 5,
+  TypeHello = 6,
+  TypeEcho = 7,
+  TypeEnd = 8,
 };
 
 inline bool CheckTypeValidation(T t) { return t > TypeFirst && t < TypeEnd; }
@@ -18,14 +19,17 @@ const uint16_t MasterNode = 00;
 
 const uint8_t TypeLen = TypeEnd - TypeFirst;
 
-
 struct Header{
-  uint16_t from_node;
-  uint16_t to_node;
-  uint16_t id;
-  uint8_t type;
-  uint8_t payload_size;
-};
+    uint16_t from_node;
+    uint16_t to_node;
+    uint16_t id;
+    uint8_t type;
+    uint8_t payload_size;
+} __attribute__((aligned(1)));
+
+#PIN_POWER_SWITCH 6
+#PIN_RESET_SWITCH 7
+#PIN_FPANEL_GROUND 8
 
 struct FPanelControl {
   uint8_t pin;
@@ -39,7 +43,7 @@ enum {
 
 const uint8_t BufferSize = 120;
 
-#define MasterSerialBauds 57600
+#define MasterSerialBauds 38400
 #define RFChannel 90
 #define RFPALevel  3 //RF24_PA_MAX
 #define RFCRCLen 2 //RF24_CRC_16
